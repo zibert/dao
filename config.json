@@ -1,0 +1,7 @@
+{
+    "zcoinEthAddress" : "0x42F63b392eA930d17B7b2d8f978B7Ac92A1cc9dA",
+    "distributedVotingAddress" : "0x921ab376fEf88AA60e43B7e5c63172dc557a8d04",
+    "chairPersonAddress" : "0x624c31357a67344f6d0278a6ef1F839E2136D735",
+    "debatingPeriodDuration" : "259200",
+    "minimumQuorum" : "100.0"
+}
