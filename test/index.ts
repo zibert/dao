@@ -184,7 +184,7 @@ describe('Common Test', () => {
           );
   })
 
-  it('second delegation to voted address should be reverted', async () => {
+  it('second delegation to address should be reverted', async () => {
     await distributedVoting.connect(acc1).deposite(ethers.utils.parseEther("3.0"));
     await distributedVoting.connect(acc1).delegate(proposalId, acc2.address);
 
@@ -421,7 +421,6 @@ describe('Common Test', () => {
   })
 
   it('only chairPerson can add a proposal', async () => {
-    console.log(getSignature(20))
     await expect(distributedVoting.connect(acc1)
     .addProposal(
       stacking.address, getSignature(10), "test")).to.be.revertedWith(

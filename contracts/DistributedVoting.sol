@@ -8,11 +8,10 @@ contract DistributedVoting {
     uint128 immutable debatingPeriodDuration;
 
     address chairPerson;
-    bool private locker;
+
+    IERC20 erc20;
 
     uint128 countOfProposals;
-    
-    IERC20 erc20;
 
     mapping(address => uint256) balances;
     mapping(address => uint256) participations;
