@@ -180,7 +180,7 @@ describe('Common Test', () => {
     await distributedVoting.connect(acc1).deposite(ethers.utils.parseEther("3.0"));
 
     await expect(distributedVoting.connect(acc1).delegate(proposalId, acc2.address)).to.be.revertedWith(
-            "already voted"
+            "delegation to voted"
           );
   })
 
@@ -189,7 +189,7 @@ describe('Common Test', () => {
     await distributedVoting.connect(acc1).delegate(proposalId, acc2.address);
 
     await expect(distributedVoting.connect(acc1).delegate(proposalId, acc3.address)).to.be.revertedWith(
-            "already delegeted"
+            "already voted or delegated"
           );
   })
 
@@ -287,7 +287,7 @@ describe('Common Test', () => {
     await distributedVoting.connect(acc1).delegate(proposalId, acc2.address);
 
     await expect(distributedVoting.connect(acc1).vote(proposalId, false)).to.be.revertedWith(
-      "your votes are delegated"
+      "already voted or delegated"
     );
   })
 
@@ -308,17 +308,14 @@ describe('Common Test', () => {
   })
 
   it('withdraw with delegation should be correct', async () => {
-    await distributedVoting.connect(acc1).deposite(ethers.utils.parseEther("3.0"));
+    await distributedVoting.connect(acc1).deposite(ethers.utils.parseEther("4.0"));
     await distributedVoting.connect(acc1).delegate(proposalId, acc2.address);
 
-    await distributedVoting.connect(acc1).withdraw();
-    expect((await zcoin.balanceOf(acc1.address))).to.eq(ethers.utils.parseEther("100.0"))
-
-    await expect(distributedVoting.connect(acc2).vote(proposalId, false)).to.be.revertedWith(
-      "voting tokens are 0"
+    await expect(distributedVoting.connect(acc1).withdraw()).to.be.revertedWith(
+      "you are still a voter"
     );
 
-    await distributedVoting.connect(acc1).deposite(ethers.utils.parseEther("4.0"));
+    expect((await zcoin.balanceOf(acc1.address))).to.eq(ethers.utils.parseEther("96.0"))
 
     await distributedVoting.connect(acc2).vote(proposalId, false);
 

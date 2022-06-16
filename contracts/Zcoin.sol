@@ -2,7 +2,7 @@
 // compiler version must be greater than or equal to 0.8.13 and less than 0.9.0
 pragma solidity ^0.8.4;
 
-import "./IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Zcoin is IERC20 {
 
@@ -19,15 +19,15 @@ contract Zcoin is IERC20 {
         owner = msg.sender;
     }
 
-    function name() public override pure returns (string memory) {
+    function name() public pure returns (string memory) {
         return NAME;
     }
 
-    function symbol() public override pure returns (string memory) {
+    function symbol() public pure returns (string memory) {
         return SYMBOL;
     }
 
-    function decimals() public override pure returns (uint8) {
+    function decimals() public pure returns (uint8) {
         return DECIMALS;
     }
 
@@ -72,14 +72,14 @@ contract Zcoin is IERC20 {
         return approved[_tokenOwner][_spender]; 
     }
 
-    function mint(address _to, uint256 _value) public override onlyOwner {
+    function mint(address _to, uint256 _value) public onlyOwner {
         balances[_to] += _value;
         total += _value;
 
         emit Transfer(address(0), _to, _value);
     }
 
-    function burn(address _from, uint256 _value) public override onlyOwner {
+    function burn(address _from, uint256 _value) public onlyOwner {
         require(balanceOf(_from) >= _value, "account balance does not have enough tokens to burn");
         
         balances[_from] -= _value;
@@ -88,7 +88,7 @@ contract Zcoin is IERC20 {
         emit Transfer(_from, address(0), _value);
     }
 
-    function setOwner(address _owner) public override onlyOwner {
+    function setOwner(address _owner) public onlyOwner {
         owner = _owner;
     }
 

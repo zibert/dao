@@ -2,7 +2,7 @@
 // compiler version must be greater than or equal to 0.8.4 and less than 0.9.0
 pragma solidity ^0.8.4;
 
-import "./IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Stacking {
     uint64 rewardPercentage = 5;

@@ -1,33 +1,33 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
-import "./IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract DistributedVoting {
+    using SafeERC20 for IERC20;
+
     uint128 immutable minimumQuorum;
     uint128 immutable debatingPeriodDuration;
 
     address chairPerson;
-
     IERC20 erc20;
-
     uint128 countOfProposals;
 
     mapping(address => uint256) balances;
     mapping(address => uint256) participations;
 
     struct Proposal {
-        bytes signature;
-        string description;
-        address recipient;
+        uint256 trueVotes;
+        uint256 falseVotes;
         uint256 endAt;
         bool inProgrss;
+        address recipient;
+        bytes signature;
+        string description;
         address[] members;
         mapping(address => bool) voted;
-        mapping(bool => uint256) votes;
-        mapping(address => bool) delegated;
-        mapping(address => bool) representatives;
-        mapping(address => address[]) delegations;
+        mapping(address => uint256) delegatedTokens;
     }
 
     mapping(uint256 => Proposal) proposals;
@@ -47,21 +47,19 @@ contract DistributedVoting {
 
     function delegate(uint128 _proposalId, address _to) external votingIsExist(_proposalId) {
         require(balances[msg.sender] > 0, "deposite is 0");
-        require(!proposals[_proposalId].voted[_to], "already voted");
-        require(!proposals[_proposalId].delegated[msg.sender],
-                "already delegeted");
+        require(!proposals[_proposalId].voted[msg.sender], "already voted or delegated");
+        require(!proposals[_proposalId].voted[_to], "delegation to voted");
 
-        proposals[_proposalId].delegated[msg.sender] = true;
-        if (!proposals[_proposalId].representatives[_to]) {
-            proposals[_proposalId].representatives[_to] = true;
-        }
-        proposals[_proposalId].delegations[_to].push(msg.sender);
+        proposals[_proposalId].delegatedTokens[_to] += balances[msg.sender];
+        proposals[_proposalId].members.push(msg.sender);
+        participations[msg.sender]++;
+        proposals[_proposalId].voted[msg.sender] = true;
     }
 
     function deposite(uint256 _amount) external {
         require(_amount > 0, "amount must be more then 0");
 
-        erc20.transferFrom(msg.sender, address(this), _amount);
+        erc20.safeTransferFrom(msg.sender, address(this), _amount);
         balances[msg.sender] += _amount;
     }
 
@@ -69,7 +67,7 @@ contract DistributedVoting {
         require(balances[msg.sender] > 0, "deposite is 0");
         require(participations[msg.sender] == 0, "you are still a voter");
 
-        erc20.transfer(msg.sender, balances[msg.sender]);
+        erc20.safeTransfer(msg.sender, balances[msg.sender]);
         balances[msg.sender] = 0;
     }
 
@@ -80,8 +78,7 @@ contract DistributedVoting {
         proposals[countOfProposals].recipient = _recipient;
         proposals[countOfProposals].endAt = block.timestamp + debatingPeriodDuration;
         proposals[countOfProposals].inProgrss = true;
-        emit AddProposal(countOfProposals);
-        countOfProposals++;
+        emit AddProposal(countOfProposals++);
     }
 
     function getSignature(uint128 _proposalId) external view votingIsExist(_proposalId) 
@@ -96,7 +93,11 @@ contract DistributedVoting {
 
     function getVotes(uint128 _proposalId, bool _val) external view votingIsExist(_proposalId) 
         returns (uint256) {
-        return proposals[_proposalId].votes[_val];
+        if (_val) {
+            return proposals[_proposalId].trueVotes;
+        } else {
+            return proposals[_proposalId].falseVotes;
+        }
     }
 
     function getRecipient(uint128 _proposalId) external view votingIsExist(_proposalId) 
@@ -107,29 +108,16 @@ contract DistributedVoting {
     function vote(uint128 _proposalId, bool _choice) external votingIsExist(_proposalId) {
         require(proposals[_proposalId].endAt > block.timestamp,
                 "voting is over");
-        require(!proposals[_proposalId].voted[msg.sender], "already voted");
-        require(!proposals[_proposalId].delegated[msg.sender],
-                "your votes are delegated");
-        require(balances[msg.sender] > 0 ||
-                proposals[_proposalId].representatives[msg.sender],
-                "voting tokens are 0");
-
-        uint256 balance = balances[msg.sender];
-        if (proposals[_proposalId].representatives[msg.sender]) {
-            address[] memory delegation = proposals[_proposalId].delegations[msg.sender];
-            for (uint256 i = 0; i < delegation.length; i++) {
-                if (balances[delegation[i]] > 0) {
-                    balance += balances[delegation[i]];
-                    proposals[_proposalId].members.push(delegation[i]);
-                    participations[delegation[i]]++;
-                }
-            }
-        }
-
-        require(balance > 0, "voting tokens are 0");
+        require(!proposals[_proposalId].voted[msg.sender], "already voted or delegated");
+        uint256 tokens = balances[msg.sender] + proposals[_proposalId].delegatedTokens[msg.sender];
+        require(tokens > 0, "voting tokens are 0");
 
         proposals[_proposalId].voted[msg.sender] = true;
-        proposals[_proposalId].votes[_choice] += balance;
+        if (_choice) {
+            proposals[_proposalId].trueVotes += tokens;
+        } else {
+            proposals[_proposalId].falseVotes += tokens;
+        }
         proposals[_proposalId].members.push(msg.sender);
         participations[msg.sender]++;
     }
@@ -139,8 +127,8 @@ contract DistributedVoting {
                 "voting in progress");
         require(proposals[_proposalId].inProgrss, "voting is finished");
         proposals[_proposalId].inProgrss = false;
-        if (proposals[_proposalId].votes[true] + proposals[_proposalId].votes[false] >= minimumQuorum) {
-            if (proposals[_proposalId].votes[true] > proposals[_proposalId].votes[false]) {
+        if (proposals[_proposalId].trueVotes + proposals[_proposalId].falseVotes >= minimumQuorum) {
+            if (proposals[_proposalId].trueVotes > proposals[_proposalId].falseVotes) {
                 (bool success, ) = proposals[_proposalId].recipient
                                         .call{value: 0}(proposals[_proposalId].signature);
                 emit CallStatus(_proposalId, success);
